@@ -21,10 +21,10 @@ public class RustAssembly extends CustomAssembly {
     protected void populate() {
 
         //------------------------------------------------------------------
-        // HARD-CODED REGISTER NUMBERS
+        // HARD-CODED REGISTERS
         //------------------------------------------------------------------
         final int REG_GRUBR   = 2;   // $v0
-        final int REG_TOOLS   = 3;   // $v1  (also LOOT)
+        final int REG_TOOLS   = 3;   // $v1
         final int REG_LOOT    = 3;   // alias of tools
         final int REG_PRIME   = 4;   // $a0
         final int REG_BOLT    = 5;   // $a1
@@ -48,14 +48,14 @@ public class RustAssembly extends CustomAssembly {
                                 int raw = s.getOperands()[0];
                                 int v;
 
-                                if (raw >= Memory.dataSegmentBaseAddress) {
-                                    try {
+                                try {
+                                    if (raw >= Memory.dataSegmentBaseAddress) {
                                         v = Globals.memory.getByte(raw);
-                                    } catch (AddressErrorException e) {
-                                        throw new ProcessingException(s, e);
+                                    } else {
+                                        v = raw & 0xFF;
                                     }
-                                } else {
-                                    v = raw & 0xFF;
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
                                 }
 
                                 RegisterFile.updateRegister(REG_GRUBR, v);
@@ -78,14 +78,14 @@ public class RustAssembly extends CustomAssembly {
                                 int raw = s.getOperands()[0];
                                 int v;
 
-                                if (raw >= Memory.dataSegmentBaseAddress) {
-                                    try {
+                                try {
+                                    if (raw >= Memory.dataSegmentBaseAddress) {
                                         v = Globals.memory.getByte(raw);
-                                    } catch (AddressErrorException e) {
-                                        throw new ProcessingException(s, e);
+                                    } else {
+                                        v = raw & 0xFF;
                                     }
-                                } else {
-                                    v = raw & 0xFF;
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
                                 }
 
                                 RegisterFile.updateRegister(REG_TOOLS, v);
@@ -108,14 +108,14 @@ public class RustAssembly extends CustomAssembly {
                                 int raw = s.getOperands()[0];
                                 int v;
 
-                                if (raw >= Memory.dataSegmentBaseAddress) {
-                                    try {
+                                try {
+                                    if (raw >= Memory.dataSegmentBaseAddress) {
                                         v = Globals.memory.getByte(raw);
-                                    } catch (AddressErrorException e) {
-                                        throw new ProcessingException(s, e);
+                                    } else {
+                                        v = raw & 0xFF;
                                     }
-                                } else {
-                                    v = raw & 0xFF;
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
                                 }
 
                                 RegisterFile.updateRegister(REG_SCRAP, v);
@@ -172,10 +172,15 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) throws ProcessingException {
+
                                 int addr = RegisterFile.getValue(REG_MAP);
                                 int val  = RegisterFile.getValue(REG_STASH);
 
-                                Globals.memory.setWord(addr, val);
+                                try {
+                                    Globals.memory.setWord(addr, val);
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
+                                }
                             }
                         })
         );
@@ -192,9 +197,14 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) throws ProcessingException {
+
                                 int addr = RegisterFile.getValue(REG_MAP);
-                                int word = Globals.memory.getWord(addr);
-                                RegisterFile.updateRegister(REG_PRIME, word | 0x80000000);
+                                try {
+                                    int word = Globals.memory.getWord(addr);
+                                    RegisterFile.updateRegister(REG_PRIME, word | 0x80000000);
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
+                                }
                             }
                         })
         );
@@ -229,9 +239,15 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) throws ProcessingException {
+
                                 int addr = RegisterFile.getValue(REG_MAP) + 4;
                                 int v    = RegisterFile.getValue(REG_DEEPBUF);
-                                Globals.memory.setWord(addr, v);
+
+                                try {
+                                    Globals.memory.setWord(addr, v);
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
+                                }
                             }
                         })
         );
@@ -293,11 +309,17 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) throws ProcessingException {
+
                                 int base = RegisterFile.getValue(REG_GRUBR);
                                 int off  = RegisterFile.getValue(REG_LOOT);
                                 int addr = base + off;
-                                int word = Globals.memory.getWord(addr);
-                                RegisterFile.updateRegister(REG_LOOT, word);
+
+                                try {
+                                    int word = Globals.memory.getWord(addr);
+                                    RegisterFile.updateRegister(REG_LOOT, word);
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
+                                }
                             }
                         })
         );
@@ -314,10 +336,10 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) {
+
                                 long result = ((long) RegisterFile.getValue(REG_LOOT)) * 2L;
-                                int out = ((result & 0xFFFFFFFF00000000L) != 0)
-                                        ? 0xFFFFFFFF
-                                        : (int) result;
+                                int out = ((result >> 32) != 0) ? 0xFFFFFFFF : (int) result;
+
                                 RegisterFile.updateRegister(REG_BOLT, out);
                             }
                         })
@@ -335,9 +357,14 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) throws ProcessingException {
+
                                 int addr = RegisterFile.getValue(REG_MAP);
-                                int w = Globals.memory.getWord(addr);
-                                RegisterFile.updateRegister(REG_DEEPBUF, Integer.reverse(w));
+                                try {
+                                    int w = Globals.memory.getWord(addr);
+                                    RegisterFile.updateRegister(REG_DEEPBUF, Integer.reverse(w));
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
+                                }
                             }
                         })
         );
@@ -373,9 +400,15 @@ public class RustAssembly extends CustomAssembly {
 
                         new SimulationCode() {
                             public void simulate(ProgramStatement s) throws ProcessingException {
+
                                 int addr = RegisterFile.getValue(REG_MAP) + 8;
                                 int val  = RegisterFile.getValue(REG_STASH);
-                                Globals.memory.setWord(addr, val);
+
+                                try {
+                                    Globals.memory.setWord(addr, val);
+                                } catch (AddressErrorException e) {
+                                    throw new ProcessingException(s, e);
+                                }
                             }
                         })
         );
