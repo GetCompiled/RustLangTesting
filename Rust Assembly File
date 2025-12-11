@@ -1,1 +1,55 @@
-Enter asm file here
+# Rust-inspired Assembly Test Program
+
+.data
+byte1: .byte 10
+byte2: .byte 5
+byte3: .byte 2
+byte4: .byte 99
+
+.text
+
+# Load small immediates (using new working opcodes)
+GRUBR byte1          # GRUBR  = 10
+GRUBT byte2          # TOOLS/LOOT = 5
+
+# Triple a register
+TRIPLED BOLT, GRUBR  # BOLT = GRUBR * 3 = 30
+
+# Add registers (like your old ADD STASH, BOLT, LOOT)
+ADD STASH, BOLT, LOOT   # STASH = 30 + 5 = 35
+
+# Store result to memory
+ST STASH, 0(MAP)         # MEM[MAP] = 35
+
+# Load + mark MSB
+LOADED PRIME, 0(MAP)     # PRIME = 35 | 0x80000000
+
+# Bit reverse
+DEEP DEEPBUF, PRIME      # DEEPBUF = bitreverse(PRIME)
+
+# Store reversed result
+ST DEEPBUF, 4(MAP)
+
+# Prime check
+PRIM BOLT, LOOT          # BOLT = isPrime(5) = 1
+
+# PC-relative branch (ROAM = PC += imm*4)
+ROAM byte3               # Skip the next GRUBS instruction
+
+# This instruction is skipped
+GRUBS byte4              # (would load SCRAP = 99)
+
+# RAIDED: read from memory unaligned
+RAIDED LOOT, GRUBR, LOOT # LOOT = MEM[GRUBR + LOOT]
+
+# Saturating double
+GEARFEAR BOLT, LOOT      # BOLT = LOOT*2, saturating
+
+# DEEPLOAD: load + reverse
+DEEPLOAD DEEPBUF, 0(MAP)
+
+# Broadcast triple
+TRIPCAST BOLT            # All registers = BOLT*3
+
+# Store final broadcast value
+ST STASH, 8(MAP)
