@@ -1,1 +1,383 @@
-//enter java file here
+package mars.mips.instructions.customlangs;
+
+import mars.mips.hardware.*;
+import mars.*;
+import mars.util.*;
+import mars.mips.instructions.*;
+
+public class RustAssembly extends CustomAssembly {
+
+    @Override
+    public String getName() {
+        return "Rust Inspired Assembly";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Custom Rust-inspired assembly language for Mars LE";
+    }
+
+    @Override
+    protected void populate() {
+
+        //------------------------------------------------------------------
+        // HARD-CODED REGISTER NUMBERS
+        //------------------------------------------------------------------
+        final int REG_GRUBR   = 2;   // $v0
+        final int REG_TOOLS   = 3;   // $v1  (also LOOT)
+        final int REG_LOOT    = 3;   // alias of tools
+        final int REG_PRIME   = 4;   // $a0
+        final int REG_BOLT    = 5;   // $a1
+        final int REG_STASH   = 6;   // $a2
+        final int REG_SCRAP   = 1;   // $at
+        final int REG_DEEPBUF = 16;  // $s0
+        final int REG_MAP     = 8;   // $t0
+
+        //------------------------------------------------------------------
+        // GRUBR value  (load into GRUBR / $v0)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "GRUBR value",
+                        "Load byte or immediate into GRUBR ($v0)",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010001 00010 00000 ssssssssssssssss",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int raw = s.getOperands()[0];
+                                int v;
+
+                                if (raw >= Memory.dataSegmentBaseAddress) {
+                                    try {
+                                        v = Globals.memory.getByte(raw);
+                                    } catch (AddressErrorException e) {
+                                        throw new ProcessingException(s, e);
+                                    }
+                                } else {
+                                    v = raw & 0xFF;
+                                }
+
+                                RegisterFile.updateRegister(REG_GRUBR, v);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // GRUBT value  (load into TOOLS / $v1)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "GRUBT value",
+                        "Load byte or immediate into TOOLS ($v1)",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010000 00011 00000 ssssssssssssssss",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int raw = s.getOperands()[0];
+                                int v;
+
+                                if (raw >= Memory.dataSegmentBaseAddress) {
+                                    try {
+                                        v = Globals.memory.getByte(raw);
+                                    } catch (AddressErrorException e) {
+                                        throw new ProcessingException(s, e);
+                                    }
+                                } else {
+                                    v = raw & 0xFF;
+                                }
+
+                                RegisterFile.updateRegister(REG_TOOLS, v);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // GRUBS value  (load into SCRAP / $at)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "GRUBS value",
+                        "Load byte or immediate into SCRAP ($at)",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010000 00001 00000 ssssssssssssssss",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int raw = s.getOperands()[0];
+                                int v;
+
+                                if (raw >= Memory.dataSegmentBaseAddress) {
+                                    try {
+                                        v = Globals.memory.getByte(raw);
+                                    } catch (AddressErrorException e) {
+                                        throw new ProcessingException(s, e);
+                                    }
+                                } else {
+                                    v = raw & 0xFF;
+                                }
+
+                                RegisterFile.updateRegister(REG_SCRAP, v);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // TRIPLED BOLT, GRUBR
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "TRIPLED BOLT, GRUBR",
+                        "BOLT = GRUBR * 3",
+                        BasicInstructionFormat.R_FORMAT,
+                        "000000 00000 00000 00000 00000 10000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) {
+                                int v = RegisterFile.getValue(REG_GRUBR);
+                                RegisterFile.updateRegister(REG_BOLT, v * 3);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // ADD STASH, BOLT, LOOT
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "ADD STASH, BOLT, LOOT",
+                        "STASH = BOLT + LOOT",
+                        BasicInstructionFormat.R_FORMAT,
+                        "000000 00000 00000 00000 00000 100000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) {
+                                int a = RegisterFile.getValue(REG_BOLT);
+                                int b = RegisterFile.getValue(REG_LOOT);
+                                RegisterFile.updateRegister(REG_STASH, a + b);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // ST STASH, 0(MAP)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "ST STASH, 0(MAP)",
+                        "MEM[MAP] = STASH",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010101 00000 00000 0000000000000000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int addr = RegisterFile.getValue(REG_MAP);
+                                int val  = RegisterFile.getValue(REG_STASH);
+
+                                Globals.memory.setWord(addr, val);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // LOADED PRIME, 0(MAP)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "LOADED PRIME, 0(MAP)",
+                        "PRIME = MEM[MAP] | 0x80000000",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010001 00000 00000 0000000000000000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int addr = RegisterFile.getValue(REG_MAP);
+                                int word = Globals.memory.getWord(addr);
+                                RegisterFile.updateRegister(REG_PRIME, word | 0x80000000);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // DEEP DEEPBUF, PRIME
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "DEEP DEEPBUF, PRIME",
+                        "DEEPBUF = bitreverse(PRIME)",
+                        BasicInstructionFormat.R_FORMAT,
+                        "000000 00000 00000 00000 00000 10001",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) {
+                                int v = RegisterFile.getValue(REG_PRIME);
+                                RegisterFile.updateRegister(REG_DEEPBUF, Integer.reverse(v));
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // ST DEEPBUF, 4(MAP)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "ST DEEPBUF, 4(MAP)",
+                        "MEM[MAP+4] = DEEPBUF",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010101 00000 00000 0000000000000100",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int addr = RegisterFile.getValue(REG_MAP) + 4;
+                                int v    = RegisterFile.getValue(REG_DEEPBUF);
+                                Globals.memory.setWord(addr, v);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // PRIM BOLT, LOOT
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "PRIM BOLT, LOOT",
+                        "BOLT = isPrime(LOOT)",
+                        BasicInstructionFormat.R_FORMAT,
+                        "000000 00000 00000 00000 00000 10010",
+
+                        new SimulationCode() {
+
+                            private boolean isPrime(int n) {
+                                if (n < 2) return false;
+                                for (int i = 2; i * i <= n; i++)
+                                    if (n % i == 0) return false;
+                                return true;
+                            }
+
+                            public void simulate(ProgramStatement s) {
+                                int v = RegisterFile.getValue(REG_LOOT);
+                                RegisterFile.updateRegister(REG_BOLT, isPrime(v) ? 1 : 0);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // ROAM imm
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "ROAM imm",
+                        "PC = PC + imm*4",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010010 00000 00000 ssssssssssssssss",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int imm = s.getOperands()[0];
+                                int target = s.getAddress() + imm * 4;
+                                Globals.instructionSet.processBranch(target);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // RAIDED LOOT, GRUBR, LOOT
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "RAIDED LOOT, GRUBR, LOOT",
+                        "LOOT = MEM[GRUBR + LOOT]",
+                        BasicInstructionFormat.R_FORMAT,
+                        "000000 00000 00000 00000 00000 10011",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int base = RegisterFile.getValue(REG_GRUBR);
+                                int off  = RegisterFile.getValue(REG_LOOT);
+                                int addr = base + off;
+                                int word = Globals.memory.getWord(addr);
+                                RegisterFile.updateRegister(REG_LOOT, word);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // GEARFEAR BOLT, LOOT
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "GEARFEAR BOLT, LOOT",
+                        "BOLT = LOOT*2 (saturating)",
+                        BasicInstructionFormat.R_FORMAT,
+                        "000000 00000 00000 00000 00000 10100",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) {
+                                long result = ((long) RegisterFile.getValue(REG_LOOT)) * 2L;
+                                int out = ((result & 0xFFFFFFFF00000000L) != 0)
+                                        ? 0xFFFFFFFF
+                                        : (int) result;
+                                RegisterFile.updateRegister(REG_BOLT, out);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // DEEPLOAD DEEPBUF, 0(MAP)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "DEEPLOAD DEEPBUF, 0(MAP)",
+                        "DEEPBUF = bitreverse(MEM[MAP])",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010011 00000 00000 0000000000000000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int addr = RegisterFile.getValue(REG_MAP);
+                                int w = Globals.memory.getWord(addr);
+                                RegisterFile.updateRegister(REG_DEEPBUF, Integer.reverse(w));
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // TRIPCAST BOLT
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "TRIPCAST BOLT",
+                        "All registers = BOLT*3",
+                        BasicInstructionFormat.J_FORMAT,
+                        "010100 00000 00000 0000000000000000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) {
+                                int v = RegisterFile.getValue(REG_BOLT) * 3;
+                                for (int r = 0; r < 32; r++)
+                                    RegisterFile.updateRegister(r, v);
+                            }
+                        })
+        );
+
+        //------------------------------------------------------------------
+        // ST STASH, 8(MAP)
+        //------------------------------------------------------------------
+        instructionList.add(
+                new BasicInstruction(
+                        "ST STASH, 8(MAP)",
+                        "MEM[MAP+8] = STASH",
+                        BasicInstructionFormat.I_FORMAT,
+                        "010101 00000 00000 0000000000001000",
+
+                        new SimulationCode() {
+                            public void simulate(ProgramStatement s) throws ProcessingException {
+                                int addr = RegisterFile.getValue(REG_MAP) + 8;
+                                int val  = RegisterFile.getValue(REG_STASH);
+                                Globals.memory.setWord(addr, val);
+                            }
+                        })
+        );
+    }
+}
